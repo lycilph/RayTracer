@@ -1,0 +1,58 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26430.16
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RayTracer", "RayTracer\RayTracer.csproj", "{D96AC5A7-7EE8-436E-9EFF-ECA2C82D1F4A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScriptingTest", "ScriptingTest\ScriptingTest.csproj", "{478E86BE-6BA8-4F79-866E-0A623A629F30}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MVVMTest", "MVVMTest\MVVMTest.csproj", "{98AAC558-62C1-4BDB-B49B-BB3167A40AA2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Engine", "Engine\Engine.csproj", "{26420C34-8D20-462E-85CA-D24B7901376A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EngineTests", "EngineTests\EngineTests.csproj", "{E8D23525-3AFC-40CE-87E7-6915B20D16B7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WriteableBitmapTest", "WriteableBitmapTest\WriteableBitmapTest.csproj", "{5CAAE8D2-2220-4D35-852B-2DC1593A65D9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvalonEditTest", "AvalonEditTest\AvalonEditTest.csproj", "{4B097728-8807-4A2D-A9DF-C1719A5A23D2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D96AC5A7-7EE8-436E-9EFF-ECA2C82D1F4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D96AC5A7-7EE8-436E-9EFF-ECA2C82D1F4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D96AC5A7-7EE8-436E-9EFF-ECA2C82D1F4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D96AC5A7-7EE8-436E-9EFF-ECA2C82D1F4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{478E86BE-6BA8-4F79-866E-0A623A629F30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{478E86BE-6BA8-4F79-866E-0A623A629F30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{478E86BE-6BA8-4F79-866E-0A623A629F30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{478E86BE-6BA8-4F79-866E-0A623A629F30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98AAC558-62C1-4BDB-B49B-BB3167A40AA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98AAC558-62C1-4BDB-B49B-BB3167A40AA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98AAC558-62C1-4BDB-B49B-BB3167A40AA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98AAC558-62C1-4BDB-B49B-BB3167A40AA2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{26420C34-8D20-462E-85CA-D24B7901376A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{26420C34-8D20-462E-85CA-D24B7901376A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{26420C34-8D20-462E-85CA-D24B7901376A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{26420C34-8D20-462E-85CA-D24B7901376A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E8D23525-3AFC-40CE-87E7-6915B20D16B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8D23525-3AFC-40CE-87E7-6915B20D16B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8D23525-3AFC-40CE-87E7-6915B20D16B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8D23525-3AFC-40CE-87E7-6915B20D16B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5CAAE8D2-2220-4D35-852B-2DC1593A65D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5CAAE8D2-2220-4D35-852B-2DC1593A65D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5CAAE8D2-2220-4D35-852B-2DC1593A65D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5CAAE8D2-2220-4D35-852B-2DC1593A65D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4B097728-8807-4A2D-A9DF-C1719A5A23D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B097728-8807-4A2D-A9DF-C1719A5A23D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B097728-8807-4A2D-A9DF-C1719A5A23D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B097728-8807-4A2D-A9DF-C1719A5A23D2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

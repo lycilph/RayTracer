@@ -5,11 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WriteableBitmapTest"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="MainWindow" Height="400" Width="525">
 
-    <StackPanel>
-        <Button Content="Start" Click="StartClick"/>
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+            <Button Content="Lines" Width="80" Click="LinesClick"/>
+            <Button Content="Horizontal" Width="80" Click="HorizontalClick"/>
+            <Button Content="Save" Width="80" Click="SaveClick"/>
+        </StackPanel>
 
         <Image x:Name="Image" Width="300" Height="300"/>
-    </StackPanel>
+    </DockPanel>
 </Window>

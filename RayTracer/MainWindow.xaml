@@ -3,13 +3,88 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit"
         mc:Ignorable="d"
-        Title="MainWindow" Height="400" Width="525">
+        Title="Ray Tracer" 
+        Height="600" 
+        Width="800">
+    <Window.InputBindings>
+        <KeyBinding Key="F4" Modifiers="Alt" Command="{Binding ExitCommand}"/>
+    </Window.InputBindings>
+    
     <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
-            <Button Content="Start" Width="80" Click="StartClick"/>
-        </StackPanel>
+        <Menu DockPanel.Dock="Top"
+              IsMainMenu="True"
+              Background="White">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open"/>
+                <MenuItem Header="_New"/>
+                <MenuItem Header="_Save"/>
+                <Separator/>
+                <MenuItem Header="E_xit" 
+                          InputGestureText="Alt+F4"
+                          Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Project">
+                <MenuItem Header="_Execute"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About"/>
+            </MenuItem>
+        </Menu>
 
-        <Image x:Name="Image" Width="300" Height="300"/>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBar.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="120"/>
+                        </Grid.ColumnDefinitions>
+                    </Grid>
+                </ItemsPanelTemplate>
+            </StatusBar.ItemsPanel>
+            <StatusBarItem Grid.Column="0">
+                <TextBlock Text="{Binding StatusText}"/>
+            </StatusBarItem>
+            <Separator Grid.Column="1"/>
+            <StatusBarItem Grid.Column="2">
+                <TextBlock Text="{Binding TimeText}"/>
+            </StatusBarItem>
+        </StatusBar>
+        
+        <TabControl Margin="5">
+            <TabItem Header="Scene">
+                <DockPanel Margin="5">
+                    <StackPanel DockPanel.Dock="Right"
+                                Width="80"
+                                Margin="5,0,0,0">
+                        <Button Content="Parse" Click="ParseClick"/>
+                        <Button Content="Run"
+                                Margin="0,5,0,0"
+                                Click="RunClick"/>
+                    </StackPanel>
+                    
+                    <ae:TextEditor BorderBrush="Black" 
+                                   BorderThickness="1"
+                                   FontFamily="Consolas"
+                                   SyntaxHighlighting="C#"/>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Output">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto">
+                    <Image Width="800" Height="800" Source="{Binding Image}"/>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Log">
+                <ItemsControl>
+                    <TextBlock Text="Log entry 1"/>
+                    <TextBlock Text="Log entry 2"/>
+                    <TextBlock Text="Log entry 3"/>
+                    <TextBlock Text="Log entry 4"/>
+                </ItemsControl>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </Window>

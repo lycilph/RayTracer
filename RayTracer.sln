@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WriteableBitmapTest", "Writ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AvalonEditTest", "AvalonEditTest\AvalonEditTest.csproj", "{4B097728-8807-4A2D-A9DF-C1719A5A23D2}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test projects", "Test projects", "{E3B6B832-8E56-4CB1-8666-E0E72EEED1BF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,5 +56,11 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{478E86BE-6BA8-4F79-866E-0A623A629F30} = {E3B6B832-8E56-4CB1-8666-E0E72EEED1BF}
+		{98AAC558-62C1-4BDB-B49B-BB3167A40AA2} = {E3B6B832-8E56-4CB1-8666-E0E72EEED1BF}
+		{5CAAE8D2-2220-4D35-852B-2DC1593A65D9} = {E3B6B832-8E56-4CB1-8666-E0E72EEED1BF}
+		{4B097728-8807-4A2D-A9DF-C1719A5A23D2} = {E3B6B832-8E56-4CB1-8666-E0E72EEED1BF}
 	EndGlobalSection
 EndGlobal

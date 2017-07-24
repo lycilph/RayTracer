@@ -1,7 +1,6 @@
 ﻿using System.IO;
 using System.Reflection;
 using System.Windows;
-using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.Win32;
 
 namespace AvalonEditTest

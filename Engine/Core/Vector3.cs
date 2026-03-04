@@ -1,4 +1,4 @@
-﻿namespace RayTracer.Core;
+﻿namespace Engine.Core;
 
 public readonly struct Vector3(double x, double y, double z)
 {

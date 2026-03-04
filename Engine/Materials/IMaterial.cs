@@ -1,6 +1,6 @@
-﻿using RayTracer.Core;
+﻿using Engine.Core;
 
-namespace RayTracer.Materials;
+namespace Engine.Materials;
 
 public interface IMaterial
 {

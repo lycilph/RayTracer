@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace RayTracer;
+namespace RayTracerConsole;
 
 internal class Program
 {

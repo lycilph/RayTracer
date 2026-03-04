@@ -1,9 +1,9 @@
-﻿using RayTracer.Core;
-using RayTracer.Materials;
-using RayTracer.Output;
-using RayTracer.Scene;
+﻿using Engine.Core;
+using Engine.Materials;
+using Engine.Output;
+using Engine.Scene;
 
-namespace RayTracer;
+namespace RayTracerConsole;
 
 public class Renderer
 {

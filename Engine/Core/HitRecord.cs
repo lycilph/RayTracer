@@ -1,6 +1,6 @@
-﻿using RayTracer.Materials;
+﻿using Engine.Materials;
 
-namespace RayTracer.Core;
+namespace Engine.Core;
 
 public readonly struct HitRecord
 {

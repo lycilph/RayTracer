@@ -1,6 +1,6 @@
-﻿using RayTracer.Core;
+﻿using Engine.Core;
 
-namespace RayTracer.Scene;
+namespace Engine.Scene;
 
 public class PointLight
 {

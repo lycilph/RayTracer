@@ -1,3 +1,5 @@
 <Solution>
-  <Project Path="RayTracer/RayTracer.csproj" />
+  <Project Path="Engine/Engine.csproj" Id="1195afb9-0f62-4aeb-a9a6-755b1e66472a" />
+  <Project Path="RayTracerConsole/RayTracerConsole.csproj" Id="29ed9543-3a91-4463-ad36-ee038c862b81" />
+  <Project Path="RayTracerUI/RayTracerUI.csproj" Id="ac6332a5-41a4-4dfb-b997-6ca7fe02773c" />
 </Solution>

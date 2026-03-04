@@ -1,7 +1,7 @@
-﻿using RayTracer.Core;
-using RayTracer.Materials;
+﻿using Engine.Core;
+using Engine.Materials;
 
-namespace RayTracer.Scene;
+namespace Engine.Scene;
 
 public class Sphere(Vector3 center, double radius, IMaterial material)
 {

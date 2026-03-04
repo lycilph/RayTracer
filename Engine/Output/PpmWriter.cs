@@ -1,6 +1,6 @@
-﻿using RayTracer.Core;
+﻿using Engine.Core;
 
-namespace RayTracer.Output;
+namespace Engine.Output;
 
 public static class PpmWriter
 {

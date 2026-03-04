@@ -1,4 +1,5 @@
 ﻿using RayTracer.Core;
+using RayTracer.Materials;
 using RayTracer.Output;
 using RayTracer.Scene;
 
@@ -9,6 +10,16 @@ public class Renderer
     const int ImageWidth = 400;
     const double AspectRatio = 16.0 / 9.0;
     const int ImageHeight = (int)(ImageWidth / AspectRatio);
+
+    // How many rays per pixel — more = less noise, slower render.
+    // Start with 10 to iterate fast, bump to 100 for a clean result.
+    const int SamplesPerPixel = 50;
+
+    // Maximum number of bounces per ray.
+    // Without a cap, rays can bounce forever in enclosed spaces.
+    // Russian roulette is the physically correct termination — we'll add
+    // that as an optional upgrade below.
+    const int MaxDepth = 10;
 
     const double ViewportHeight = 2.0;
     const double ViewportWidth = ViewportHeight * AspectRatio;
@@ -23,60 +34,96 @@ public class Renderer
         - Vertical / 2
         - new Vector3(0, 0, FocalLength);
 
+    // Materials defined once, shared across spheres
+    static readonly IMaterial RedDiffuse = new DiffuseMaterial(new Vector3(0.8, 0.2, 0.2));
+    static readonly IMaterial GreenDiffuse = new DiffuseMaterial(new Vector3(0.2, 0.8, 0.2));
+    static readonly IMaterial BlueDiffuse = new DiffuseMaterial(new Vector3(0.2, 0.2, 0.8));
+    static readonly IMaterial GreyDiffuse = new DiffuseMaterial(new Vector3(0.8, 0.8, 0.8));
+
     static readonly Sphere[] Scene =
     [
-        new Sphere(new Vector3( 0.0,    0.0, -1.0), 0.5,   new Vector3(1,   0.2, 0.2)),
-        new Sphere(new Vector3(-1.1,    0.0, -1.0), 0.5,   new Vector3(0.2, 1,   0.2)),
-        new Sphere(new Vector3( 0.4,    0.0, -1.0), 0.5,   new Vector3(0.2, 0.2, 1  )),
-        new Sphere(new Vector3( 0.0, -100.5, -1.0), 100.0, new Vector3(0.8, 0.8, 0.8)),
+        new Sphere(new Vector3( 0.0,    0.0, -1.0), 0.5,   RedDiffuse),
+        new Sphere(new Vector3(-1.1,    0.0, -1.0), 0.5,   GreenDiffuse),
+        new Sphere(new Vector3( 1.1,    0.0, -1.0), 0.5,   BlueDiffuse),
+        new Sphere(new Vector3( 0.0, -100.5, -1.0), 100.0, GreyDiffuse),
     ];
-
-    static readonly PointLight Light = new(
-        position: new Vector3(2, 3, 0),   // above and to the right
-        color: new Vector3(1, 1, 1),   // white light
-        intensity: 1.0);
-
-    // A small ambient term so surfaces in full shadow aren't pure black
-    const double AmbientIntensity = 0.05;
 
     public void Render(string outputPath)
     {
         var pixels = new Vector3[ImageHeight, ImageWidth];
 
         for (int y = 0; y < ImageHeight; y++)
+        {
             for (int x = 0; x < ImageWidth; x++)
             {
-                double u = x / (double)(ImageWidth - 1);
-                double v = (ImageHeight - 1 - y) / (double)(ImageHeight - 1);
+                Vector3 color = Vector3.Zero;
 
-                var ray = new Ray(
-                    CameraOrigin,
-                    LowerLeftCorner + u * Horizontal + v * Vertical - CameraOrigin);
+                // Multi-sampling — jitter the ray slightly within the pixel
+                // each sample, then average. This is also what gives us
+                // anti-aliasing for free — edge pixels blend smoothly.
+                for (int s = 0; s < SamplesPerPixel; s++)
+                {
+                    double u = (x + Random.Shared.NextDouble()) / (ImageWidth - 1);
+                    double v = (ImageHeight - 1 - y + Random.Shared.NextDouble()) / (ImageHeight - 1);
 
-                pixels[y, x] = RayColor(ray);
+                    var ray = new Ray(
+                        CameraOrigin,
+                        LowerLeftCorner + u * Horizontal + v * Vertical - CameraOrigin);
+
+                    color += RayColor(ray, MaxDepth, new Vector3(1, 1, 1));
+                }
+
+                // Divide by sample count and gamma-correct (see note below)
+                pixels[y, x] = GammaCorrect(color / SamplesPerPixel);
             }
 
-        PpmWriter.Write(outputPath, pixels);
-        Console.WriteLine($"Rendered {ImageWidth}x{ImageHeight} -> {outputPath}");
-    }
-
-    static Vector3 RayColor(Ray ray)
-    {
-        HitRecord? closest = FindClosestHit(ray, 0.001, double.MaxValue);
-
-        if (closest is null)
-        {
-            // Sky gradient — unchanged from Milestone 1
-            Vector3 unitDir = ray.Direction.Normalized;
-            double blend = 0.5 * (unitDir.Y + 1.0);
-            return (1 - blend) * new Vector3(1, 1, 1)
-                     + blend * new Vector3(0.5, 0.7, 1.0);
+            // Progress indicator — renders can take a while
+            if (y % 20 == 0)
+                Console.Write($"\rScanlines remaining: {ImageHeight - y}   ");
         }
 
-        return Shade(closest.Value);
+        Console.WriteLine("\rDone.                        ");
+        PpmWriter.Write(outputPath, pixels);
+        Console.WriteLine($"Saved -> {outputPath}");
     }
 
-    // Finds the closest hit across all spheres in the scene
+    // Recursive ray color — bounces until it escapes or hits max depth
+    static Vector3 RayColor(Ray ray, int depth, Vector3 throughput)
+    {
+        // Exceeded bounce limit — no more light gathered along this path
+        if (depth <= 0) return Vector3.Zero;
+
+        // Terminate dim paths early — probability = 1 - max channel of throughput
+        double survivalProb = Math.Clamp(Math.Max(throughput.X, Math.Max(throughput.Y, throughput.Z)), 0.1, 1.0);
+        if (Random.Shared.NextDouble() > survivalProb)
+            return Vector3.Zero;
+
+        // Compensate survivors so the result stays unbiased
+        throughput = throughput / survivalProb;
+
+        HitRecord? hit = FindClosestHit(ray, 0.001, double.MaxValue);
+
+        if (hit is not null)
+        {
+            // Ask the material what to do with this ray
+            if (hit.Value.Material.Scatter(ray, hit.Value, out Vector3 attenuation, out Ray scattered))
+            {
+                // Multiply by attenuation and recurse down the scattered ray
+                return attenuation * RayColor(scattered, depth - 1, attenuation * throughput);
+            }
+
+            // Material absorbed the ray — no light contribution
+            return Vector3.Zero;
+        }
+
+        // Ray escaped to sky — this is the light source in a path tracer.
+        // All light in the scene ultimately comes from here.
+        Vector3 unitDir = ray.Direction.Normalized;
+        double blend = 0.5 * (unitDir.Y + 1.0);
+        return (1 - blend) * new Vector3(1, 1, 1)
+                 + blend * new Vector3(0.5, 0.7, 1.0);
+    }
+
     static HitRecord? FindClosestHit(Ray ray, double tMin, double tMax)
     {
         HitRecord? closest = null;
@@ -84,39 +131,22 @@ public class Renderer
 
         foreach (var sphere in Scene)
         {
-            HitRecord? hit = sphere.Hit(ray, tMin, tBest);
-            if (hit is not null)
+            HitRecord? candidate = sphere.Hit(ray, tMin, tBest);
+            if (candidate is not null)
             {
-                closest = hit;
-                tBest = hit.Value.T;  // tighten the window — discard anything further
+                closest = candidate;
+                tBest = candidate.Value.T;
             }
         }
 
         return closest;
     }
 
-    static Vector3 Shade(HitRecord hit)
-    {
-        // We need to recover the sphere's color — extend HitRecord in the next milestone
-        // For now we derive a color from the normal as a placeholder for non-sphere hits
-        Vector3 lightDir = Light.DirectionFrom(hit.Position);
-
-        // Lambertian diffuse — how directly is this surface facing the light?
-        double diffuse = Math.Max(0, Vector3.Dot(hit.Normal, lightDir));
-
-        // Shadow ray — shoot toward the light, stop just before reaching it
-        double lightDist = Light.DistanceFrom(hit.Position);
-        var shadowRay = new Ray(hit.Position, lightDir);
-        bool inShadow = FindClosestHit(shadowRay, 0.001, lightDist) is not null;
-
-        // Surface color derived from normal — remove this once materials arrive
-        // Maps normal components from [-1,1] to [0,1] — a useful debug visualisation
-        Vector3 surfaceColor = 0.5 * (hit.Normal + new Vector3(1, 1, 1));
-
-        double lighting = inShadow
-            ? AmbientIntensity
-            : AmbientIntensity + diffuse * Light.Intensity;
-
-        return surfaceColor * lighting * Light.Color;
-    }
+    // Gamma correction — monitors display colors with gamma ≈ 2.2.
+    // Without this, the image looks too dark. We apply gamma 2 (square root)
+    // as a close-enough approximation.
+    static Vector3 GammaCorrect(Vector3 color) => new(
+        Math.Sqrt(Math.Clamp(color.X, 0, 1)),
+        Math.Sqrt(Math.Clamp(color.Y, 0, 1)),
+        Math.Sqrt(Math.Clamp(color.Z, 0, 1)));
 }

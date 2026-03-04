@@ -1,15 +1,14 @@
 ﻿using RayTracer.Core;
+using RayTracer.Materials;
 
 namespace RayTracer.Scene;
 
-public class Sphere(Vector3 center, double radius, Vector3 color)
+public class Sphere(Vector3 center, double radius, IMaterial material)
 {
     public Vector3 Center { get; } = center;
     public double Radius { get; } = radius;
-    public Vector3 Color { get; } = color; // temporary — becomes a Material in Milestone 4
+    public IMaterial Material { get; } = material;
 
-    // Returns a HitRecord if the ray hits within [tMin, tMax], null otherwise
-    // tMin / tMax lets the caller restrict which part of the ray is valid.
     public HitRecord? Hit(Ray ray, double tMin, double tMax)
     {
         Vector3 oc = ray.Origin - Center;
@@ -34,6 +33,6 @@ public class Sphere(Vector3 center, double radius, Vector3 color)
         Vector3 position = ray.At(t);
         Vector3 outwardNormal = (position - Center) / Radius;
 
-        return new HitRecord(ray, position, outwardNormal, t);
+        return new HitRecord(ray, position, outwardNormal, t, Material);  // ← pass material
     }
 }

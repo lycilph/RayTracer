@@ -2,6 +2,8 @@
 
 public readonly struct Vector3(double x, double y, double z)
 {
+    public static readonly Vector3 Zero = new(0, 0, 0);
+
     public readonly double X = x, Y = y, Z = z;
 
     // Arithmetic

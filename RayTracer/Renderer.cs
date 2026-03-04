@@ -13,7 +13,7 @@ public class Renderer
 
     // How many rays per pixel — more = less noise, slower render.
     // Start with 10 to iterate fast, bump to 100 for a clean result.
-    const int SamplesPerPixel = 50;
+    const int SamplesPerPixel = 100;
 
     // Maximum number of bounces per ray.
     // Without a cap, rays can bounce forever in enclosed spaces.
@@ -52,50 +52,57 @@ public class Renderer
     {
         var pixels = new Vector3[ImageHeight, ImageWidth];
 
-        for (int y = 0; y < ImageHeight; y++)
+        // Thread-local Random — each thread gets its own instance,
+        // seeded differently so they don't all produce the same sequence
+        var threadLocalRandom = new ThreadLocal<Random>(() => new Random(Guid.NewGuid().GetHashCode()));
+
+        int rowsCompleted = 0;
+
+        Parallel.For(0, ImageHeight, y =>
         {
+            // Grab this thread's own Random instance
+            Random rng = threadLocalRandom.Value!;
+
             for (int x = 0; x < ImageWidth; x++)
             {
                 Vector3 color = Vector3.Zero;
 
-                // Multi-sampling — jitter the ray slightly within the pixel
-                // each sample, then average. This is also what gives us
-                // anti-aliasing for free — edge pixels blend smoothly.
                 for (int s = 0; s < SamplesPerPixel; s++)
                 {
-                    double u = (x + Random.Shared.NextDouble()) / (ImageWidth - 1);
-                    double v = (ImageHeight - 1 - y + Random.Shared.NextDouble()) / (ImageHeight - 1);
+                    double u = (x + rng.NextDouble()) / (ImageWidth - 1);
+                    double v = (ImageHeight - 1 - y + rng.NextDouble()) / (ImageHeight - 1);
 
                     var ray = new Ray(
                         CameraOrigin,
                         LowerLeftCorner + u * Horizontal + v * Vertical - CameraOrigin);
 
-                    color += RayColor(ray, MaxDepth, new Vector3(1, 1, 1));
+                    color += RayColor(ray, MaxDepth, new Vector3(1, 1, 1), rng);
                 }
 
-                // Divide by sample count and gamma-correct (see note below)
                 pixels[y, x] = GammaCorrect(color / SamplesPerPixel);
             }
 
-            // Progress indicator — renders can take a while
-            if (y % 20 == 0)
-                Console.Write($"\rScanlines remaining: {ImageHeight - y}   ");
-        }
+            // Interlocked.Increment is an atomic add — safe across threads.
+            // A plain rowsCompleted++ would be a data race.
+            int completed = Interlocked.Increment(ref rowsCompleted);
+            if (completed % 20 == 0 || completed == ImageHeight)
+                Console.Write($"\rScanlines completed: {completed}/{ImageHeight}   ");
+        });
 
-        Console.WriteLine("\rDone.                        ");
+        Console.WriteLine("\rDone.                              ");
         PpmWriter.Write(outputPath, pixels);
         Console.WriteLine($"Saved -> {outputPath}");
     }
 
     // Recursive ray color — bounces until it escapes or hits max depth
-    static Vector3 RayColor(Ray ray, int depth, Vector3 throughput)
+    static Vector3 RayColor(Ray ray, int depth, Vector3 throughput, Random rng)
     {
         // Exceeded bounce limit — no more light gathered along this path
         if (depth <= 0) return Vector3.Zero;
 
         // Terminate dim paths early — probability = 1 - max channel of throughput
         double survivalProb = Math.Clamp(Math.Max(throughput.X, Math.Max(throughput.Y, throughput.Z)), 0.1, 1.0);
-        if (Random.Shared.NextDouble() > survivalProb)
+        if (rng.NextDouble() > survivalProb)
             return Vector3.Zero;
 
         // Compensate survivors so the result stays unbiased
@@ -106,10 +113,10 @@ public class Renderer
         if (hit is not null)
         {
             // Ask the material what to do with this ray
-            if (hit.Value.Material.Scatter(ray, hit.Value, out Vector3 attenuation, out Ray scattered))
+            if (hit.Value.Material.Scatter(ray, hit.Value, out Vector3 attenuation, out Ray scattered, rng))
             {
                 // Multiply by attenuation and recurse down the scattered ray
-                return attenuation * RayColor(scattered, depth - 1, attenuation * throughput);
+                return attenuation * RayColor(scattered, depth - 1, attenuation * throughput, rng);
             }
 
             // Material absorbed the ray — no light contribution

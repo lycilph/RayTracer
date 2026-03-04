@@ -10,6 +10,7 @@ public readonly struct Vector3(double x, double y, double z)
     public static Vector3 operator -(Vector3 v) => new(-v.X, -v.Y, -v.Z);
     public static Vector3 operator *(Vector3 v, double t) => new(v.X * t, v.Y * t, v.Z * t);
     public static Vector3 operator *(double t, Vector3 v) => v * t;
+    public static Vector3 operator *(Vector3 a, Vector3 b) => new(a.X * b.X, a.Y * b.Y, a.Z * b.Z);
     public static Vector3 operator /(Vector3 v, double t) => v * (1.0 / t);
 
     // The two most important operations in ray tracing:

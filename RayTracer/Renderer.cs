@@ -6,24 +6,17 @@ namespace RayTracer;
 
 public class Renderer
 {
-    // Image
     const int ImageWidth = 400;
     const double AspectRatio = 16.0 / 9.0;
-    const int ImageHeight = (int)(ImageWidth / AspectRatio);  // 225
+    const int ImageHeight = (int)(ImageWidth / AspectRatio);
 
-    // Camera / viewport
-    // ViewportHeight = 2.0 is a convention — gives a natural field of view.
-    // The width follows from the aspect ratio so pixels are square.
     const double ViewportHeight = 2.0;
     const double ViewportWidth = ViewportHeight * AspectRatio;
-    const double FocalLength = 1.0;  // distance from camera to viewport
+    const double FocalLength = 1.0;
 
     static readonly Vector3 CameraOrigin = new(0, 0, 0);
     static readonly Vector3 Horizontal = new(ViewportWidth, 0, 0);
     static readonly Vector3 Vertical = new(0, ViewportHeight, 0);
-
-    // Bottom-left corner of the viewport in world space.
-    // We step right by (u * Horizontal) and up by (v * Vertical) from here.
     static readonly Vector3 LowerLeftCorner =
         CameraOrigin
         - Horizontal / 2
@@ -32,11 +25,19 @@ public class Renderer
 
     static readonly Sphere[] Scene =
     [
-        new Sphere(new Vector3( 0.0,    0.0, -1.0), 0.5,   new Vector3(1,   0.2, 0.2)),  // red
-        new Sphere(new Vector3(-1.1,    0.0, -1.0), 0.5,   new Vector3(0.2, 1,   0.2)),  // green
-        new Sphere(new Vector3( 0.3,    0.0, -1.0), 0.5,   new Vector3(0.2, 0.2, 1  )),  // blue
-        new Sphere(new Vector3( 0.0, -100.5, -1.0), 100.0, new Vector3(0.8, 0.8, 0.8)),  // ground
+        new Sphere(new Vector3( 0.0,    0.0, -1.0), 0.5,   new Vector3(1,   0.2, 0.2)),
+        new Sphere(new Vector3(-1.1,    0.0, -1.0), 0.5,   new Vector3(0.2, 1,   0.2)),
+        new Sphere(new Vector3( 0.4,    0.0, -1.0), 0.5,   new Vector3(0.2, 0.2, 1  )),
+        new Sphere(new Vector3( 0.0, -100.5, -1.0), 100.0, new Vector3(0.8, 0.8, 0.8)),
     ];
+
+    static readonly PointLight Light = new(
+        position: new Vector3(2, 3, 0),   // above and to the right
+        color: new Vector3(1, 1, 1),   // white light
+        intensity: 1.0);
+
+    // A small ambient term so surfaces in full shadow aren't pure black
+    const double AmbientIntensity = 0.05;
 
     public void Render(string outputPath)
     {
@@ -45,9 +46,8 @@ public class Renderer
         for (int y = 0; y < ImageHeight; y++)
             for (int x = 0; x < ImageWidth; x++)
             {
-                // u, v are [0, 1] coordinates across the viewport
                 double u = x / (double)(ImageWidth - 1);
-                double v = (ImageHeight - 1 - y) / (double)(ImageHeight - 1);  // flip Y — PPM row 0 is top, but viewport v=0 is bottom
+                double v = (ImageHeight - 1 - y) / (double)(ImageHeight - 1);
 
                 var ray = new Ray(
                     CameraOrigin,
@@ -62,28 +62,61 @@ public class Renderer
 
     static Vector3 RayColor(Ray ray)
     {
-        // Find the closest sphere hit along this ray
-        double closest = double.MaxValue;
-        Sphere? hitSphere = null;
+        HitRecord? closest = FindClosestHit(ray, 0.001, double.MaxValue);
+
+        if (closest is null)
+        {
+            // Sky gradient — unchanged from Milestone 1
+            Vector3 unitDir = ray.Direction.Normalized;
+            double blend = 0.5 * (unitDir.Y + 1.0);
+            return (1 - blend) * new Vector3(1, 1, 1)
+                     + blend * new Vector3(0.5, 0.7, 1.0);
+        }
+
+        return Shade(closest.Value);
+    }
+
+    // Finds the closest hit across all spheres in the scene
+    static HitRecord? FindClosestHit(Ray ray, double tMin, double tMax)
+    {
+        HitRecord? closest = null;
+        double tBest = tMax;
 
         foreach (var sphere in Scene)
         {
-            double t = sphere.Hit(ray, 0.001, closest);
-            if (t > 0)
+            HitRecord? hit = sphere.Hit(ray, tMin, tBest);
+            if (hit is not null)
             {
-                closest = t;
-                hitSphere = sphere;
+                closest = hit;
+                tBest = hit.Value.T;  // tighten the window — discard anything further
             }
         }
 
-        // Hit something — return its flat color (no shading yet)
-        if (hitSphere is not null)
-            return hitSphere.Color;
+        return closest;
+    }
 
-        // Miss — sky gradient from white (bottom) to light blue (top)
-        Vector3 unitDir = ray.Direction.Normalized;
-        double blend = 0.5 * (unitDir.Y + 1.0);  // remap Y from [-1,1] to [0,1]
-        return (1 - blend) * new Vector3(1, 1, 1)
-                 + blend * new Vector3(0.5, 0.7, 1.0);
+    static Vector3 Shade(HitRecord hit)
+    {
+        // We need to recover the sphere's color — extend HitRecord in the next milestone
+        // For now we derive a color from the normal as a placeholder for non-sphere hits
+        Vector3 lightDir = Light.DirectionFrom(hit.Position);
+
+        // Lambertian diffuse — how directly is this surface facing the light?
+        double diffuse = Math.Max(0, Vector3.Dot(hit.Normal, lightDir));
+
+        // Shadow ray — shoot toward the light, stop just before reaching it
+        double lightDist = Light.DistanceFrom(hit.Position);
+        var shadowRay = new Ray(hit.Position, lightDir);
+        bool inShadow = FindClosestHit(shadowRay, 0.001, lightDist) is not null;
+
+        // Surface color derived from normal — remove this once materials arrive
+        // Maps normal components from [-1,1] to [0,1] — a useful debug visualisation
+        Vector3 surfaceColor = 0.5 * (hit.Normal + new Vector3(1, 1, 1));
+
+        double lighting = inShadow
+            ? AmbientIntensity
+            : AmbientIntensity + diffuse * Light.Intensity;
+
+        return surfaceColor * lighting * Light.Color;
     }
 }

@@ -3,7 +3,7 @@ using Engine.Materials;
 
 namespace Engine.Scene;
 
-public class Sphere(Vector3 center, double radius, IMaterial material)
+public class Sphere(Vector3 center, double radius, IMaterial material) : IHittable
 {
     public Vector3 Center { get; } = center;
     public double Radius { get; } = radius;
@@ -32,7 +32,11 @@ public class Sphere(Vector3 center, double radius, IMaterial material)
 
         Vector3 position = ray.At(t);
         Vector3 outwardNormal = (position - Center) / Radius;
-
-        return new HitRecord(ray, position, outwardNormal, t, Material);  // ← pass material
+        return new HitRecord(ray, position, outwardNormal, t, Material);
     }
+
+    // The tightest AABB around a sphere — simply center ± radius on all axes
+    public AABB BoundingBox() => new(
+        Center - new Vector3(Radius, Radius, Radius),
+        Center + new Vector3(Radius, Radius, Radius));
 }

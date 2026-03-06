@@ -62,21 +62,21 @@ public static class MicrofacetBRDF
     // l  = light direction (toward light / next bounce)
     // h  = half vector = normalize(v + l)
     // f0 = base reflectance at normal incidence
-    public static Vector3 Specular(Vector3 n, Vector3 v, Vector3 l, Vector3 h,
-                                   double roughness, Vector3 f0)
-    {
-        double d = D_GGX(n, h, roughness);
-        double g = G_Smith(n, v, l, roughness);
-        Vector3 f = F_Schlick(Math.Max(Vector3.Dot(h, v), 0), f0);
+    //public static Vector3 Specular(Vector3 n, Vector3 v, Vector3 l, Vector3 h,
+    //                               double roughness, Vector3 f0)
+    //{
+    //    double d = D_GGX(n, h, roughness);
+    //    double g = G_Smith(n, v, l, roughness);
+    //    Vector3 f = F_Schlick(Math.Max(Vector3.Dot(h, v), 0), f0);
 
-        double nDotL = Math.Max(Vector3.Dot(n, l), 0);
-        double nDotV = Math.Max(Vector3.Dot(n, v), 0);
+    //    double nDotL = Math.Max(Vector3.Dot(n, l), 0);
+    //    double nDotV = Math.Max(Vector3.Dot(n, v), 0);
 
-        // Denominator clamped to avoid division by zero at grazing angles
-        double denom = 4.0 * nDotV * nDotL + 1e-4;
+    //    // Denominator clamped to avoid division by zero at grazing angles
+    //    double denom = 4.0 * nDotV * nDotL + 1e-4;
 
-        return d * g * f / denom;
-    }
+    //    return d * g * f / denom;
+    //}
 
     // ── Importance Sampling — GGX ────────────────────────────────────────
     // Instead of sampling a random hemisphere direction (as DiffuseMaterial does),

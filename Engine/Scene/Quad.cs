@@ -11,16 +11,18 @@ public class Quad : IHittable
     readonly Vector3 _normal;
     readonly double _d;        // plane constant: dot(normal, origin)
     readonly IMaterial _material;
+    readonly bool _doubleSided;
 
     // Precomputed for the inside-quad test
     readonly Vector3 _w;          // cross(u, v) / |cross(u, v)|²
 
-    public Quad(Vector3 origin, Vector3 u, Vector3 v, IMaterial material)
+    public Quad(Vector3 origin, Vector3 u, Vector3 v, IMaterial material, bool doubleSided = false)
     {
         _origin = origin;
         _u = u;
         _v = v;
         _material = material;
+        _doubleSided = doubleSided;
 
         Vector3 cross = Vector3.Cross(u, v);
         _normal = cross.Normalized;
@@ -51,7 +53,9 @@ public class Quad : IHittable
         // Outside the quad bounds
         if (s < 0 || s > 1 || r < 0 || r > 1) return null;
 
-        return new HitRecord(ray, hitPoint, _normal, t, _material);
+        // For double-sided quads, flip the normal to always face the incoming ray
+        Vector3 outwardNormal = (_doubleSided && dDotN > 0) ? -_normal : _normal;
+        return new HitRecord(ray, hitPoint, outwardNormal, t, _material);
     }
 
     public AABB BoundingBox()

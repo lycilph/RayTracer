@@ -27,62 +27,100 @@ public class Renderer
 
     public void Render()
     {
-        // ── Lights ───────────────────────────────────────────────────────
+        // ── Materials ────────────────────────────────────────────────────────
+        var white = new PBRMaterial(new Vector3(0.73, 0.73, 0.73), 0.0, 0.9);
+        var red = new PBRMaterial(new Vector3(0.65, 0.05, 0.05), 0.0, 0.9);
+        var green = new PBRMaterial(new Vector3(0.12, 0.45, 0.15), 0.0, 0.9);
+
+        // ── Light ────────────────────────────────────────────────────────────
+        // Classic Cornell Box light — small quad in the ceiling center
         var ceilingLight = new QuadLight(
-            origin: new Vector3(-2, 4, -2),
-            u: new Vector3(4, 0, 0),   // 4 units wide
-            v: new Vector3(0, 0, 4),   // 4 units deep
-            emission: new Vector3(10, 9, 8));   // warm white
+            origin: new Vector3(213, 554, 227),
+            u: new Vector3(130, 0, 0),
+            v: new Vector3(0, 0, 105),
+            emission: new Vector3(15, 15, 15));
 
-        var fillLight = new SphereLight(
-            center: new Vector3(-4, 3, -1),
-            radius: 0.5,
-            emission: new Vector3(4, 6, 10));    // cool blue fill
+        var lightSampler = new LightSampler(new IAreaLight[] { ceilingLight });
 
-        var lightSampler = new LightSampler(new IAreaLight[] { ceilingLight, fillLight });
-
-        // ── Scene ────────────────────────────────────────────────────────
+        // ── Room geometry ────────────────────────────────────────────────────
+        // Cornell Box is traditionally 555 × 555 × 555 units
         var scene = new HittableList();
 
-        // PBR material grid — same as Milestone 6
-        int cols = 5;
-        int rows = 5;
-        double spacing = 2.2;
+        // Floor — white, Y = 0
+        scene.Add(new Quad(
+            new Vector3(0, 0, 0),
+            new Vector3(555, 0, 0),
+            new Vector3(0, 0, 555),
+            white));
 
-        for (int row = 0; row < rows; row++)
-            for (int col = 0; col < cols; col++)
-            {
-                double roughness = 0.05 + (col / (double)(cols - 1)) * 0.95;
-                double metalness = row / (double)(rows - 1);
-                var albedo = new Vector3(0.8, 0.5, 0.3);
+        // Ceiling — white, Y = 555
+        scene.Add(new Quad(
+            new Vector3(555, 555, 555),
+            new Vector3(-555, 0, 0),
+            new Vector3(0, 0, -555),
+            white));
 
-                scene.Add(new Sphere(
-                    new Vector3(
-                        (col - cols / 2) * spacing,
-                        0,
-                        (row - rows / 2) * spacing),
-                    0.9,
-                    new PBRMaterial(albedo, metalness, roughness)));
-            }
+        // Back wall — white, Z = 555
+        scene.Add(new Quad(
+            new Vector3(0, 0, 555),
+            new Vector3(555, 0, 0),
+            new Vector3(0, 555, 0),
+            white));
 
-        // Ground
+        // Left wall — red, X = 555
+        scene.Add(new Quad(
+            new Vector3(555, 0, 0),
+            new Vector3(0, 0, 555),
+            new Vector3(0, 555, 0),
+            red));
+
+        // Right wall — green, X = 0
+        scene.Add(new Quad(
+            new Vector3(0, 0, 555),
+            new Vector3(0, 0, -555),
+            new Vector3(0, 555, 0),
+            green));
+
+        // ── Boxes ────────────────────────────────────────────────────────────
+        // Each box is 6 quads. We build a helper to position and rotate them.
+        AddBox(scene, white,
+            center: new Vector3(185, 105, 169),
+            sizeX: 165, sizeY: 165, sizeZ: 165,
+            rotateY: -18);  // short box, rotated slightly left
+
+        AddBox(scene, white,
+            center: new Vector3(368, 230, 351),
+            sizeX: 165, sizeY: 330, sizeZ: 165,
+            rotateY: 15);  // tall box, rotated slightly right
+
+
+        // Glass sphere — sitting on the floor in the left area
         scene.Add(new Sphere(
-            new Vector3(0, -1001, 0), 1000,
-            new PBRMaterial(new Vector3(0.5, 0.5, 0.5), 0.0, 0.8)));
+            new Vector3(185, 250, 169),   // centered above the short box
+            60,
+            new DielectricMaterial(1.5)));
 
-        // Add light spheres as emissive geometry so they're visible
-        // and so BRDF samples that hit them return the correct emission
+        // Highly reflective sphere — sitting on the tall box
+        scene.Add(new Sphere(
+            new Vector3(555 - 90, 90, 120),  // centered above the tall box
+            60,
+            new PBRMaterial(
+                new Vector3(0.95, 0.95, 0.95),  // near-white albedo
+                metalness: 1.0,
+                roughness: 0.02)));             // almost perfectly smooth
+
+        // Light geometry — visible ceiling quad
         scene.Add(new EmissiveQuad(ceilingLight));
-        scene.Add(new EmissiveSphere(fillLight));
 
         IHittable bvh = new BVHNode(scene, new Random(42));
 
-        // ── Camera ───────────────────────────────────────────────────────
+        // ── Camera ───────────────────────────────────────────────────────────
+        // Classic Cornell Box camera — looking straight down -Z
         var camera = new Camera(_width, _height,
-            lookFrom: new Vector3(0, 6, 12),
-            lookAt: new Vector3(0, 0, 0),
+            lookFrom: new Vector3(278, 278, -800),
+            lookAt: new Vector3(278, 278, 0),
             vUp: new Vector3(0, 1, 0),
-            vFovDegrees: 38.0);
+            vFovDegrees: 40.0);
 
         // ── Render ───────────────────────────────────────────────────────
         // ── Accumulation buffer — running sum of all samples so far ──────
@@ -242,4 +280,57 @@ public class Renderer
         Math.Sqrt(Math.Clamp(color.X, 0, 1)),
         Math.Sqrt(Math.Clamp(color.Y, 0, 1)),
         Math.Sqrt(Math.Clamp(color.Z, 0, 1)));
+
+    static void AddBox(HittableList scene,
+                       PBRMaterial material,
+                       Vector3 center,
+                       double sizeX,
+                       double sizeY,
+                       double sizeZ,
+                       double rotateY)
+    {
+        // Half extents
+        double hx = sizeX / 2;
+        double hy = sizeY / 2;
+        double hz = sizeZ / 2;
+
+        // 8 corners in local space (unrotated, uncentered)
+        Vector3[] c =
+        [
+            new(-hx, -hy, -hz),  // 0 left  bottom front
+        new( hx, -hy, -hz),  // 1 right bottom front
+        new( hx,  hy, -hz),  // 2 right top    front
+        new(-hx,  hy, -hz),  // 3 left  top    front
+        new(-hx, -hy,  hz),  // 4 left  bottom back
+        new( hx, -hy,  hz),  // 5 right bottom back
+        new( hx,  hy,  hz),  // 6 right top    back
+        new(-hx,  hy,  hz),  // 7 left  top    back
+    ];
+
+        // Apply Y rotation and translation to each corner
+        double rad = rotateY * Math.PI / 180.0;
+        double cosR = Math.Cos(rad);
+        double sinR = Math.Sin(rad);
+
+        for (int i = 0; i < c.Length; i++)
+        {
+            double x = cosR * c[i].X + sinR * c[i].Z;
+            double z = -sinR * c[i].X + cosR * c[i].Z;
+            c[i] = center + new Vector3(x, c[i].Y, z);
+        }
+
+        // 6 faces — each as a Quad (origin, u edge, v edge)
+        // Front face
+        scene.Add(new Quad(c[0], c[1] - c[0], c[3] - c[0], material));
+        // Back face
+        scene.Add(new Quad(c[5], c[4] - c[5], c[6] - c[5], material));
+        // Left face
+        scene.Add(new Quad(c[4], c[0] - c[4], c[7] - c[4], material));
+        // Right face
+        scene.Add(new Quad(c[1], c[5] - c[1], c[2] - c[1], material));
+        // Top face
+        scene.Add(new Quad(c[3], c[2] - c[3], c[7] - c[3], material));
+        // Bottom face
+        scene.Add(new Quad(c[4], c[5] - c[4], c[0] - c[4], material));
+    }
 }

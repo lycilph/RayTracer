@@ -9,36 +9,25 @@ public class Renderer
 {
     readonly int _width;
     readonly int _height;
-    readonly Action<int, byte[], int, int> _onRowComplete;
+    readonly Action<byte[], int, int> _onPassComplete;
     readonly Action _onComplete;
 
-    const int SamplesPerPixel = 2048;
+    const int TotalPasses = 512;
     const int MaxDepth = 12;
 
     public Renderer(int width, int height,
-        Action<int, byte[], int, int> onRowComplete,
+        Action<byte[], int, int> onPassComplete,
         Action onComplete)
     {
         _width = width;
         _height = height;
-        _onRowComplete = onRowComplete;
+        _onPassComplete = onPassComplete;
         _onComplete = onComplete;
     }
 
     public void Render()
     {
         // ── Lights ───────────────────────────────────────────────────────
-        //var keyLight = new SphereLight(
-        //    center: new Vector3(3, 5, 2),
-        //    radius: 0.8,
-        //    emission: new Vector3(15, 14, 12));  // warm white, high intensity
-
-        // A large softbox above and to the left — classic key light setup
-        //var keyLight = new QuadLight(
-        //    origin: new Vector3(-1.5, 5, -1.5),  // one corner
-        //    u: new Vector3(3, 0, 0),    // 3 units wide along X
-        //    v: new Vector3(0, 0, 3),    // 3 units deep along Z
-        //    emission: new Vector3(12, 11, 10));    // warm white
         var ceilingLight = new QuadLight(
             origin: new Vector3(-2, 4, -2),
             u: new Vector3(4, 0, 0),   // 4 units wide
@@ -83,7 +72,6 @@ public class Renderer
 
         // Add light spheres as emissive geometry so they're visible
         // and so BRDF samples that hit them return the correct emission
-        //scene.Add(new EmissiveSphere(keyLight));
         scene.Add(new EmissiveQuad(ceilingLight));
         scene.Add(new EmissiveSphere(fillLight));
 
@@ -97,40 +85,51 @@ public class Renderer
             vFovDegrees: 38.0);
 
         // ── Render ───────────────────────────────────────────────────────
+        // ── Accumulation buffer — running sum of all samples so far ──────
+        var accumulator = new Vector3[_height, _width];
+        var pixelBuffer = new byte[_width * _height * 3];
+
         var threadLocalRandom = new ThreadLocal<Random>(
             () => new Random(Guid.NewGuid().GetHashCode()));
 
-        int rowsCompleted = 0;
-
-        Parallel.For(0, _height, y =>
+        for (int pass = 1; pass <= TotalPasses; pass++)
         {
-            Random rngLocal = threadLocalRandom.Value!;
-            var rowPixels = new byte[_width * 3];
-
-            for (int x = 0; x < _width; x++)
+            // Each pass adds one sample per pixel across the full image
+            Parallel.For(0, _height, y =>
             {
-                Vector3 color = Vector3.Zero;
+                Random rng = threadLocalRandom.Value!;
 
-                for (int s = 0; s < SamplesPerPixel; s++)
+                for (int x = 0; x < _width; x++)
                 {
-                    double u = (x + rngLocal.NextDouble()) / (_width - 1);
-                    double v = (_height - 1 - y + rngLocal.NextDouble()) / (_height - 1);
+                    double u = (x + rng.NextDouble()) / (_width - 1);
+                    double v = (_height - 1 - y + rng.NextDouble()) / (_height - 1);
 
                     Ray ray = camera.GetRay(u, v);
-                    color += RayColor(ray, MaxDepth, rngLocal, bvh, lightSampler);
+                    Vector3 color = RayColor(ray, MaxDepth, rng, bvh, lightSampler);
+
+                    // Thread safety — each (x, y) is written by exactly one thread
+                    accumulator[y, x] += color;
+                }
+            });
+
+            // Convert accumulator to display buffer — divide by pass count
+            // to get the running average, then gamma correct
+            for (int y = 0; y < _height; y++)
+                for (int x = 0; x < _width; x++)
+                {
+                    Vector3 avg = accumulator[y, x] / pass;
+                    Vector3 corrected = GammaCorrect(avg);
+
+                    int idx = (y * _width + x) * 3;
+                    pixelBuffer[idx] = (byte)(255.999 * corrected.X);
+                    pixelBuffer[idx + 1] = (byte)(255.999 * corrected.Y);
+                    pixelBuffer[idx + 2] = (byte)(255.999 * corrected.Z);
                 }
 
-                Vector3 corrected = GammaCorrect(color / SamplesPerPixel);
-
-                int idx = x * 3;
-                rowPixels[idx] = (byte)(255.999 * corrected.X);
-                rowPixels[idx + 1] = (byte)(255.999 * corrected.Y);
-                rowPixels[idx + 2] = (byte)(255.999 * corrected.Z);
-            }
-
-            int completed = Interlocked.Increment(ref rowsCompleted);
-            _onRowComplete(y, rowPixels, completed, _height);
-        });
+            // Only update the display every 5 passes after the first few
+            if (pass <= 5 || pass % 5 == 0)
+                _onPassComplete(pixelBuffer, pass, TotalPasses);
+        }
 
         _onComplete();
     }

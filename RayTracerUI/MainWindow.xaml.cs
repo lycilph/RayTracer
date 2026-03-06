@@ -34,8 +34,8 @@ public partial class MainWindow : Window
         RenderImage.Source = _bitmap;
 
         _renderer = new Renderer(RenderWidth, RenderHeight,
-            onRowComplete: UpdateRow,
-            onComplete: OnRenderComplete);
+        onPassComplete: UpdateFrame,
+        onComplete: OnRenderComplete);
 
         sw = Stopwatch.StartNew();
 
@@ -44,20 +44,18 @@ public partial class MainWindow : Window
         Task.Run(() => _renderer.Render());
     }
 
-    // Called from the renderer for each completed row.
-    // Must marshal back to the UI thread to touch the bitmap.
-    void UpdateRow(int y, byte[] rowPixels, int scanlinesDone, int totalScanlines)
+    // Called from the renderer for each completed frame.
+    void UpdateFrame(byte[] framePixels, int pass, int total_passes)
     {
         Dispatcher.InvokeAsync(() =>
         {
-            // Write one scanline into the bitmap
-            var rect = new System.Windows.Int32Rect(0, y, RenderWidth, 1);
-            _bitmap.WritePixels(rect, rowPixels, RenderWidth * 3, 0);
+            // Write the entire frame at once
+            var rect = new System.Windows.Int32Rect(0, 0, RenderWidth, RenderHeight);
+            _bitmap.WritePixels(rect, framePixels, RenderWidth * 3, 0);
 
-            // Update progress
-            double progress = scanlinesDone / (double)totalScanlines;
-            ProgressBar.Value = progress * 100;
-            StatusText.Text = $"Rendering... {scanlinesDone}/{totalScanlines} scanlines";
+            //double progress = pass / (double)200;
+            ProgressBar.Value = (pass * 100.0)/total_passes;
+            StatusText.Text = $"Pass {pass}/{total_passes}";
         });
     }
 

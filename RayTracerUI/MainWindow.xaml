@@ -33,10 +33,15 @@
                     Click="SaveButton_Click"
                     Background="#56b6c2" Foreground="White"
                     BorderThickness="0"/>
-            <TextBlock x:Name="StatusText"
-                       Foreground="#aaa"
-                       VerticalAlignment="Center"
-                       Text="Starting render..."/>
+            <StackPanel>
+                <TextBlock x:Name="StatusText"
+                           Foreground="#aaa"
+                           VerticalAlignment="Center"
+                           Text="Starting render..."/>
+                <TextBlock x:Name="TimingText"
+                           Foreground="#aaa"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
         </DockPanel>
 
     </StackPanel>

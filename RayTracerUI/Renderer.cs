@@ -12,7 +12,7 @@ public class Renderer
     readonly Action<int, byte[], int, int> _onRowComplete;
     readonly Action _onComplete;
 
-    const int SamplesPerPixel = 50;
+    const int SamplesPerPixel = 500;
     const int MaxDepth = 10;
 
     // Look-at camera parameters

@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -12,6 +13,8 @@ public partial class MainWindow : Window
 
     WriteableBitmap _bitmap = null!;
     Renderer _renderer = null!;
+
+    Stopwatch sw = null!;
 
     public MainWindow()
     {
@@ -33,6 +36,8 @@ public partial class MainWindow : Window
         _renderer = new Renderer(RenderWidth, RenderHeight,
             onRowComplete: UpdateRow,
             onComplete: OnRenderComplete);
+
+        sw = Stopwatch.StartNew();
 
         // Start the renderer on a background thread —
         // never block the UI thread with heavy computation
@@ -63,6 +68,9 @@ public partial class MainWindow : Window
             ProgressBar.Value = 100;
             StatusText.Text = "Done.";
             SaveButton.IsEnabled = true;
+
+            sw.Stop();
+            TimingText.Text = "Time elapsed: " + sw.Elapsed;
         });
     }
 

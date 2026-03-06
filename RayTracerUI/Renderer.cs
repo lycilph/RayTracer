@@ -12,7 +12,7 @@ public class Renderer
     readonly Action _onComplete;
 
     // More samples needed for PBR — specular noise is higher than diffuse
-    const int SamplesPerPixel = 500;
+    const int SamplesPerPixel = 5000;
     const int MaxDepth = 12;
 
     public Renderer(int width, int height,

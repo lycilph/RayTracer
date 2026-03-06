@@ -4,17 +4,10 @@ namespace Engine.Materials;
 
 public class PBRMaterial : IMaterial
 {
-    // Base color of the surface — for dielectrics this is the diffuse color,
-    // for metals this tints the specular reflection
     public Vector3 Albedo { get; }
-
-    // 0 = fully dielectric (plastic), 1 = fully metallic (gold, chrome)
     public double Metalness { get; }
-
-    // 0 = perfectly smooth mirror, 1 = completely rough / diffuse-like
     public double Roughness { get; }
 
-    // Clamp roughness to avoid numerical issues with perfectly smooth surfaces
     const double MinRoughness = 0.04;
 
     public PBRMaterial(Vector3 albedo, double metalness, double roughness)
@@ -26,83 +19,69 @@ public class PBRMaterial : IMaterial
 
     public bool Scatter(Ray rayIn, HitRecord hit, out Vector3 attenuation, out Ray scattered, Random rng)
     {
-        // View direction points away from the surface toward the camera
         Vector3 v = (-rayIn.Direction).Normalized;
-
-        // F0 — base reflectance at normal incidence.
-        // Dielectrics use 0.04 (achromatic). Metals use their albedo color.
         Vector3 f0 = Lerp(new Vector3(0.04, 0.04, 0.04), Albedo, Metalness);
 
-        // Decide whether this bounce is specular or diffuse.
-        // We use the luminance of F0 as a probability — shinier surfaces
-        // are more likely to take the specular path.
-        // This is a stochastic form of the specular/diffuse split.
-        double specularProb = Luminance(f0);
-        bool doSpecular = rng.NextDouble() < specularProb;
+        // Evaluate Fresnel at the surface normal — used to determine
+        // split probability before we know the scatter direction
+        double cosTheta = Math.Max(Vector3.Dot(hit.Normal, v), 0);
+        Vector3 f = MicrofacetBRDF.F_Schlick(cosTheta, f0);
+        double specularProb = Math.Clamp(Luminance(f), 0.1, 0.9);
 
-        if (doSpecular)
+        if (rng.NextDouble() < specularProb)
         {
-            // ── Specular bounce ──────────────────────────────────────────
-            // Sample a microfacet normal from the GGX distribution,
-            // then reflect the incoming ray around it
+            // ── Specular path ────────────────────────────────────────────
+            // Sample microfacet normal from GGX, reflect incoming ray around it
             Vector3 h = MicrofacetBRDF.SampleGGX(hit.Normal, Roughness, rng);
-            Vector3 reflected = MetalMaterial.Reflect((-v), h);
+            Vector3 l = MetalMaterial.Reflect((-v), h).Normalized;
 
-            // If the reflected ray goes below the surface, absorb it —
-            // this can happen for very rough surfaces at grazing angles
-            if (Vector3.Dot(reflected, hit.Normal) <= 0)
+            // Reflected ray went below the surface — absorb
+            if (Vector3.Dot(l, hit.Normal) <= 0)
             {
                 attenuation = Vector3.Zero;
-                scattered = new Ray(hit.Position, hit.Normal); // dummy, won't contribute
+                scattered = new Ray(hit.Position, hit.Normal);
                 return false;
             }
 
-            Vector3 l = reflected.Normalized;
             Vector3 hWorld = (v + l).Normalized;
-
-            // Full Cook-Torrance specular BRDF
-            Vector3 specular = MicrofacetBRDF.Specular(hit.Normal, v, l, hWorld, Roughness, f0);
-
-            // Weight by PDF and cosine term, compensate for stochastic selection
             double nDotL = Math.Max(Vector3.Dot(hit.Normal, l), 0);
-            attenuation = specular * nDotL / specularProb;
+            double nDotV = Math.Max(Vector3.Dot(hit.Normal, v), 0);
+            double vDotH = Math.Max(Vector3.Dot(v, hWorld), 0);
+            double nDotH = Math.Max(Vector3.Dot(hit.Normal, hWorld), 0);
+
+            double g = MicrofacetBRDF.G_Smith(hit.Normal, v, l, Roughness);
+            Vector3 fresnel = MicrofacetBRDF.F_Schlick(vDotH, f0);
+
+            // D cancels with GGX sampling PDF — leaving G and F only
+            // Full derivation: BRDF * nDotL / pdf = F * G * vDotH / (nDotH * nDotV)
+            attenuation = fresnel * g * vDotH / (nDotH * nDotV * specularProb + 1e-6);
             scattered = new Ray(hit.Position, l);
         }
         else
         {
-            // ── Diffuse bounce ───────────────────────────────────────────
-            // Cosine-weighted hemisphere sample — identical to DiffuseMaterial
+            // ── Diffuse path ─────────────────────────────────────────────
+            // Cosine-weighted hemisphere sample
             Vector3 scatterDir = hit.Normal + RandomUnitVector(rng);
             if (IsNearZero(scatterDir)) scatterDir = hit.Normal;
-
             Vector3 l = scatterDir.Normalized;
 
-            // Fresnel at this angle — determines how much light goes diffuse
-            double cosTheta = Math.Max(Vector3.Dot(hit.Normal, l), 0);
-            Vector3 f = MicrofacetBRDF.F_Schlick(cosTheta, f0);
+            // Fresnel at the actual scatter direction
+            double nDotL = Math.Max(Vector3.Dot(hit.Normal, l), 0);
+            Vector3 fresnel = MicrofacetBRDF.F_Schlick(nDotL, f0);
+            Vector3 kD = (new Vector3(1, 1, 1) - fresnel) * (1.0 - Metalness);
 
-            // Diffuse component — energy not taken by specular, scaled by albedo
-            // Metals have no diffuse term (absorbed into the surface)
-            Vector3 kD = (new Vector3(1, 1, 1) - f) * (1.0 - Metalness);
-            Vector3 diffuse = kD * Albedo / Math.PI;
-
-            // Weight by PDF (cosine-weighted = nDotL / π) and compensate
-            // for stochastic selection probability
-            double nDotL = Math.Max(cosTheta, 0);
-            double pdf = nDotL / Math.PI;
-            attenuation = diffuse * nDotL / (pdf * (1.0 - specularProb));
+            // Cosine-weighted PDF (nDotL / π) cancels with BRDF (kD * albedo / π)
+            // leaving kD * albedo, compensated for the selection probability
+            attenuation = kD * Albedo / (1.0 - specularProb + 1e-6);
             scattered = new Ray(hit.Position, l);
         }
 
         return true;
     }
 
-    // Linear interpolation between two vectors
     static Vector3 Lerp(Vector3 a, Vector3 b, double t) =>
         a * (1 - t) + b * t;
 
-    // Perceptual luminance — weighted sum of RGB channels
-    // matches human eye sensitivity (more sensitive to green)
     static double Luminance(Vector3 c) =>
         0.2126 * c.X + 0.7152 * c.Y + 0.0722 * c.Z;
 

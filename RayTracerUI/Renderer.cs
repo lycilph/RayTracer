@@ -12,7 +12,7 @@ public class Renderer
     readonly Action<int, byte[], int, int> _onRowComplete;
     readonly Action _onComplete;
 
-    const int SamplesPerPixel = 1000;
+    const int SamplesPerPixel = 2048;
     const int MaxDepth = 12;
 
     public Renderer(int width, int height,
@@ -28,17 +28,29 @@ public class Renderer
     public void Render()
     {
         // ── Lights ───────────────────────────────────────────────────────
-        var keyLight = new SphereLight(
-            center: new Vector3(3, 5, 2),
-            radius: 0.8,
-            emission: new Vector3(15, 14, 12));  // warm white, high intensity
+        //var keyLight = new SphereLight(
+        //    center: new Vector3(3, 5, 2),
+        //    radius: 0.8,
+        //    emission: new Vector3(15, 14, 12));  // warm white, high intensity
+
+        // A large softbox above and to the left — classic key light setup
+        //var keyLight = new QuadLight(
+        //    origin: new Vector3(-1.5, 5, -1.5),  // one corner
+        //    u: new Vector3(3, 0, 0),    // 3 units wide along X
+        //    v: new Vector3(0, 0, 3),    // 3 units deep along Z
+        //    emission: new Vector3(12, 11, 10));    // warm white
+        var ceilingLight = new QuadLight(
+            origin: new Vector3(-2, 4, -2),
+            u: new Vector3(4, 0, 0),   // 4 units wide
+            v: new Vector3(0, 0, 4),   // 4 units deep
+            emission: new Vector3(10, 9, 8));   // warm white
 
         var fillLight = new SphereLight(
             center: new Vector3(-4, 3, -1),
             radius: 0.5,
             emission: new Vector3(4, 6, 10));    // cool blue fill
 
-        var lightSampler = new LightSampler(new IAreaLight[] { keyLight, fillLight });
+        var lightSampler = new LightSampler(new IAreaLight[] { ceilingLight, fillLight });
 
         // ── Scene ────────────────────────────────────────────────────────
         var scene = new HittableList();
@@ -71,7 +83,8 @@ public class Renderer
 
         // Add light spheres as emissive geometry so they're visible
         // and so BRDF samples that hit them return the correct emission
-        scene.Add(new EmissiveSphere(keyLight));
+        //scene.Add(new EmissiveSphere(keyLight));
+        scene.Add(new EmissiveQuad(ceilingLight));
         scene.Add(new EmissiveSphere(fillLight));
 
         IHittable bvh = new BVHNode(scene, new Random(42));

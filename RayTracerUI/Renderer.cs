@@ -1,4 +1,5 @@
-﻿using Engine.Core;
+﻿using Accessibility;
+using Engine.Core;
 using Engine.Lights;
 using Engine.Materials;
 using Engine.Scene;
@@ -7,20 +8,19 @@ namespace RayTracerUI;
 
 public class Renderer
 {
-    readonly int _width;
-    readonly int _height;
+    readonly RenderSettings _renderSettings;
+    readonly CameraSettings _cameraSettings;
     readonly Action<byte[], int, int> _onPassComplete;
     readonly Action _onComplete;
 
-    const int TotalPasses = 512;
-    const int MaxDepth = 12;
-
-    public Renderer(int width, int height,
+    public Renderer(
+        RenderSettings renderSettings, 
+        CameraSettings cameraSettings,
         Action<byte[], int, int> onPassComplete,
         Action onComplete)
     {
-        _width = width;
-        _height = height;
+        _renderSettings = renderSettings;
+        _cameraSettings = cameraSettings;
         _onPassComplete = onPassComplete;
         _onComplete = onComplete;
     }
@@ -116,34 +116,30 @@ public class Renderer
 
         // ── Camera ───────────────────────────────────────────────────────────
         // Classic Cornell Box camera — looking straight down -Z
-        var camera = new Camera(_width, _height,
-            lookFrom: new Vector3(278, 278, -800),
-            lookAt: new Vector3(278, 278, 0),
-            vUp: new Vector3(0, 1, 0),
-            vFovDegrees: 40.0);
+        var camera = new Camera(_cameraSettings, _renderSettings.AspectRatio);
 
         // ── Render ───────────────────────────────────────────────────────
         // ── Accumulation buffer — running sum of all samples so far ──────
-        var accumulator = new Vector3[_height, _width];
-        var pixelBuffer = new byte[_width * _height * 3];
+        var accumulator = new Vector3[_renderSettings.Height, _renderSettings.Width];
+        var pixelBuffer = new byte[_renderSettings.Width * _renderSettings.Height * 3];
 
         var threadLocalRandom = new ThreadLocal<Random>(
             () => new Random(Guid.NewGuid().GetHashCode()));
 
-        for (int pass = 1; pass <= TotalPasses; pass++)
+        for (int pass = 1; pass <= _renderSettings.SamplesPerPixel; pass++)
         {
             // Each pass adds one sample per pixel across the full image
-            Parallel.For(0, _height, y =>
+            Parallel.For(0, _renderSettings.Height, y =>
             {
                 Random rng = threadLocalRandom.Value!;
 
-                for (int x = 0; x < _width; x++)
+                for (int x = 0; x < _renderSettings.Width; x++)
                 {
-                    double u = (x + rng.NextDouble()) / (_width - 1);
-                    double v = (_height - 1 - y + rng.NextDouble()) / (_height - 1);
+                    double u = (x + rng.NextDouble()) / (_renderSettings.Width - 1);
+                    double v = (_renderSettings.Height - 1 - y + rng.NextDouble()) / (_renderSettings.Height - 1);
 
                     Ray ray = camera.GetRay(u, v);
-                    Vector3 color = RayColor(ray, MaxDepth, rng, bvh, lightSampler);
+                    Vector3 color = RayColor(ray, _renderSettings.MaxDepth, rng, bvh, lightSampler);
 
                     // Thread safety — each (x, y) is written by exactly one thread
                     accumulator[y, x] += color;
@@ -152,13 +148,13 @@ public class Renderer
 
             // Convert accumulator to display buffer — divide by pass count
             // to get the running average, then gamma correct
-            for (int y = 0; y < _height; y++)
-                for (int x = 0; x < _width; x++)
+            for (int y = 0; y < _renderSettings.Height; y++)
+                for (int x = 0; x < _renderSettings.Width; x++)
                 {
                     Vector3 avg = accumulator[y, x] / pass;
                     Vector3 corrected = GammaCorrect(avg);
 
-                    int idx = (y * _width + x) * 3;
+                    int idx = (y * _renderSettings.Width + x) * 3;
                     pixelBuffer[idx] = (byte)(255.999 * corrected.X);
                     pixelBuffer[idx + 1] = (byte)(255.999 * corrected.Y);
                     pixelBuffer[idx + 2] = (byte)(255.999 * corrected.Z);
@@ -166,7 +162,7 @@ public class Renderer
 
             // Only update the display every 5 passes after the first few
             if (pass <= 5 || pass % 5 == 0)
-                _onPassComplete(pixelBuffer, pass, TotalPasses);
+                _onPassComplete(pixelBuffer, pass, _renderSettings.SamplesPerPixel);
         }
 
         _onComplete();

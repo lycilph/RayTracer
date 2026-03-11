@@ -7,32 +7,23 @@ namespace RayTracerConsole;
 
 public class Renderer
 {
-    const int ImageWidth = 400;
-    const double AspectRatio = 16.0 / 9.0;
-    const int ImageHeight = (int)(ImageWidth / AspectRatio);
+    // All render quality settings in one place.
+    // Change these here for now — Phase 2 will make them scriptable.
+    static readonly RenderSettings RenderSettings = new()
+    {
+        Width = 400,
+        Height = 225,
+        SamplesPerPixel = 100,
+        MaxDepth = 10,
+    };
 
-    // How many rays per pixel — more = less noise, slower render.
-    // Start with 10 to iterate fast, bump to 100 for a clean result.
-    const int SamplesPerPixel = 100;
-
-    // Maximum number of bounces per ray.
-    // Without a cap, rays can bounce forever in enclosed spaces.
-    // Russian roulette is the physically correct termination — we'll add
-    // that as an optional upgrade below.
-    const int MaxDepth = 10;
-
-    const double ViewportHeight = 2.0;
-    const double ViewportWidth = ViewportHeight * AspectRatio;
-    const double FocalLength = 1.0;
-
-    static readonly Vector3 CameraOrigin = new(0, 0, 0);
-    static readonly Vector3 Horizontal = new(ViewportWidth, 0, 0);
-    static readonly Vector3 Vertical = new(0, ViewportHeight, 0);
-    static readonly Vector3 LowerLeftCorner =
-        CameraOrigin
-        - Horizontal / 2
-        - Vertical / 2
-        - new Vector3(0, 0, FocalLength);
+    static readonly CameraSettings CameraSettings = new()
+    {
+        LookFrom = new Vector3(0, 0, 0),
+        LookAt = new Vector3(0, 0, -1),
+        Up = new Vector3(0, 1, 0),
+        VFovDegrees = 60.0,
+    };
 
     // Materials defined once, shared across spheres
     static readonly IMaterial RedDiffuse = new DiffuseMaterial(new Vector3(0.8, 0.2, 0.2));
@@ -50,7 +41,8 @@ public class Renderer
 
     public void Render(string outputPath)
     {
-        var pixels = new Vector3[ImageHeight, ImageWidth];
+        var pixels = new Vector3[RenderSettings.Height, RenderSettings.Width];
+        var camera = new Camera(CameraSettings, RenderSettings.AspectRatio);
 
         // Thread-local Random — each thread gets its own instance,
         // seeded differently so they don't all produce the same sequence
@@ -58,35 +50,33 @@ public class Renderer
 
         int rowsCompleted = 0;
 
-        Parallel.For(0, ImageHeight, y =>
+        Parallel.For(0, RenderSettings.Height, y =>
         {
             // Grab this thread's own Random instance
             Random rng = threadLocalRandom.Value!;
 
-            for (int x = 0; x < ImageWidth; x++)
+            for (int x = 0; x < RenderSettings.Width; x++)
             {
                 Vector3 color = Vector3.Zero;
 
-                for (int s = 0; s < SamplesPerPixel; s++)
+                for (int s = 0; s < RenderSettings.SamplesPerPixel; s++)
                 {
-                    double u = (x + rng.NextDouble()) / (ImageWidth - 1);
-                    double v = (ImageHeight - 1 - y + rng.NextDouble()) / (ImageHeight - 1);
+                    double u = (x + rng.NextDouble()) / (RenderSettings.Width - 1);
+                    double v = (RenderSettings.Height - 1 - y + rng.NextDouble()) / (RenderSettings.Height - 1);
 
-                    var ray = new Ray(
-                        CameraOrigin,
-                        LowerLeftCorner + u * Horizontal + v * Vertical - CameraOrigin);
+                    var ray = new Ray(camera.GetRay(u, v).Origin, camera.GetRay(u, v).Direction);
+                    color += RayColor(ray, RenderSettings.MaxDepth, new Vector3(1, 1, 1), rng);
 
-                    color += RayColor(ray, MaxDepth, new Vector3(1, 1, 1), rng);
                 }
 
-                pixels[y, x] = GammaCorrect(color / SamplesPerPixel);
+                pixels[y, x] = GammaCorrect(color / RenderSettings.SamplesPerPixel, RenderSettings.Gamma);
             }
 
             // Interlocked.Increment is an atomic add — safe across threads.
             // A plain rowsCompleted++ would be a data race.
             int completed = Interlocked.Increment(ref rowsCompleted);
-            if (completed % 20 == 0 || completed == ImageHeight)
-                Console.Write($"\rScanlines completed: {completed}/{ImageHeight}   ");
+            if (completed % 20 == 0 || completed == RenderSettings.Height)
+                Console.Write($"\rScanlines completed: {completed}/{RenderSettings.Height}   ");
         });
 
         Console.WriteLine("\rDone.                              ");
@@ -149,11 +139,11 @@ public class Renderer
         return closest;
     }
 
-    // Gamma correction — monitors display colors with gamma ≈ 2.2.
-    // Without this, the image looks too dark. We apply gamma 2 (square root)
-    // as a close-enough approximation.
-    static Vector3 GammaCorrect(Vector3 color) => new(
-        Math.Sqrt(Math.Clamp(color.X, 0, 1)),
-        Math.Sqrt(Math.Clamp(color.Y, 0, 1)),
-        Math.Sqrt(Math.Clamp(color.Z, 0, 1)));
+    // Gamma is now driven by RenderSettings.Gamma rather than hardcoded as 2.0.
+    // Math.Pow(x, 1/gamma) is the general form. When gamma=2, this is sqrt(x),
+    // which is what the original hardcoded version did.
+    static Vector3 GammaCorrect(Vector3 color, double gamma) => new(
+        Math.Pow(Math.Clamp(color.X, 0, 1), 1.0 / gamma),
+        Math.Pow(Math.Clamp(color.Y, 0, 1), 1.0 / gamma),
+        Math.Pow(Math.Clamp(color.Z, 0, 1), 1.0 / gamma));
 }

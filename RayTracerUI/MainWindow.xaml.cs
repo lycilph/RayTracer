@@ -3,13 +3,14 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Engine.Core;
 
 namespace RayTracerUI;
 
 public partial class MainWindow : Window
 {
-    const int RenderWidth = 400;
-    const int RenderHeight = 225;
+    RenderSettings renderSettings = null!;
+    CameraSettings cameraSettings = null!;
 
     WriteableBitmap _bitmap = null!;
     Renderer _renderer = null!;
@@ -24,18 +25,28 @@ public partial class MainWindow : Window
 
     void OnLoaded(object sender, RoutedEventArgs e)
     {
+        renderSettings = new RenderSettings { Width = 400, Height = 225, SamplesPerPixel = 512, MaxDepth = 12 };
+        cameraSettings = new CameraSettings
+        {
+            LookFrom = new Vector3(278, 278, -800),
+            LookAt = new Vector3(278, 278, 0),
+            VFovDegrees = 40.0,
+        };
+
         // WriteableBitmap must be created on the UI thread
         _bitmap = new WriteableBitmap(
-            RenderWidth, RenderHeight,
+            renderSettings.Width, renderSettings.Height,
             96, 96,
             PixelFormats.Rgb24,
             null);
 
         RenderImage.Source = _bitmap;
 
-        _renderer = new Renderer(RenderWidth, RenderHeight,
-        onPassComplete: UpdateFrame,
-        onComplete: OnRenderComplete);
+        _renderer = new Renderer(
+            renderSettings, 
+            cameraSettings,
+            onPassComplete: UpdateFrame,
+            onComplete: OnRenderComplete);
 
         sw = Stopwatch.StartNew();
 
@@ -50,8 +61,8 @@ public partial class MainWindow : Window
         Dispatcher.InvokeAsync(() =>
         {
             // Write the entire frame at once
-            var rect = new System.Windows.Int32Rect(0, 0, RenderWidth, RenderHeight);
-            _bitmap.WritePixels(rect, framePixels, RenderWidth * 3, 0);
+            var rect = new System.Windows.Int32Rect(0, 0, renderSettings.Width, renderSettings.Height);
+            _bitmap.WritePixels(rect, framePixels, renderSettings.Width * 3, 0);
 
             //double progress = pass / (double)200;
             ProgressBar.Value = (pass * 100.0)/total_passes;

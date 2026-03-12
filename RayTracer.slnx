@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/ExamplePrograms/">
+    <Project Path="MonteCarloIntegration/MonteCarloIntegration.csproj" Id="c1f4f968-7826-4142-a177-304e3f4c0c2c" />
+  </Folder>
   <Project Path="Engine/Engine.csproj" Id="1195afb9-0f62-4aeb-a9a6-755b1e66472a" />
   <Project Path="RayTracerConsole/RayTracerConsole.csproj" Id="29ed9543-3a91-4463-ad36-ee038c862b81" />
   <Project Path="RayTracerUI/RayTracerUI.csproj" Id="ac6332a5-41a4-4dfb-b997-6ca7fe02773c" />

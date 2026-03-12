@@ -61,7 +61,7 @@ public partial class MainWindow : Window
         Dispatcher.InvokeAsync(() =>
         {
             // Write the entire frame at once
-            var rect = new System.Windows.Int32Rect(0, 0, renderSettings.Width, renderSettings.Height);
+            var rect = new Int32Rect(0, 0, renderSettings.Width, renderSettings.Height);
             _bitmap.WritePixels(rect, framePixels, renderSettings.Width * 3, 0);
 
             //double progress = pass / (double)200;
